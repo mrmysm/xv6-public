@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "rbt.h"
 
 struct {
   struct spinlock lock;
@@ -38,10 +39,10 @@ struct cpu*
 mycpu(void)
 {
   int apicid, i;
-  
+
   if(readeflags()&FL_IF)
     panic("mycpu called with interrupts enabled\n");
-  
+
   apicid = lapicid();
   // APIC IDs are not guaranteed to be contiguous. Maybe we should have
   // a reverse map, or reserve a register to store &cpus[i].
@@ -124,7 +125,7 @@ userinit(void)
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
   p = allocproc();
-  
+
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
@@ -275,7 +276,7 @@ wait(void)
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
-  
+
   acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for exited children.
@@ -325,7 +326,7 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
@@ -336,19 +337,29 @@ scheduler(void)
       if(p->state != RUNNABLE)
         continue;
 
+        // Find the next process to run from the RBT
+        struct proc* nextProc = getProcess(&rbtRoot);
+        if (nextProc == NULL) {
+            continue; // No process found, continue checking
+        }
+
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+      c->proc = nextProc;
+      switchuvm(nextProc);
+      nextProc->state = RUNNING;
 
-      swtch(&(c->scheduler), p->context);
+      swtch(&(c->scheduler), nextProc->context);
       switchkvm();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
+
+      // Update virtual runtime and reinsert into RBT
+      updateVirtualRuntime(nextProc);
+      insertProcess(&rbtRoot, nextProc);
     }
     release(&ptable.lock);
 
@@ -418,7 +429,7 @@ void
 sleep(void *chan, struct spinlock *lk)
 {
   struct proc *p = myproc();
-  
+
   if(p == 0)
     panic("sleep");
 

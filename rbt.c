@@ -1,17 +1,9 @@
-#define RED true
-#define BLACK false
-#define MAX_WEIGHT 1024
-#define WEIGHT_FACTOR 10
-
-struct RBTNode {
-    struct proc *process;
-    struct RBTNode *left, *right, *parent;
-    bool color; // Red (true) or Black (false)
-};
-
+#include "limits.h"
+#include "rbt.h"
+#include "user.h"
+#include "proc.h"
 
 // Function to Create a New RBT Node
-
 struct RBTNode *createRBTNode(struct proc *p) {
     struct RBTNode *newNode = (struct RBTNode *) malloc(sizeof(struct RBTNode));
     if (newNode == NULL) {
@@ -28,7 +20,6 @@ struct RBTNode *createRBTNode(struct proc *p) {
 }
 
 // Function to Insert Process in RBT
-
 void insertProcess(struct RBTNode **root, struct proc *p) {
     struct RBTNode *newNode = createRBTNode(p);
     if (newNode == NULL) {
@@ -102,17 +93,6 @@ void fixInsertRBT(struct RBTNode **root, struct RBTNode *k) {
     }
 
     (*root)->color = BLACK; // Root should always be black
-}
-
-int calculateWeight(int niceValue) {
-    int weight = MAX_WEIGHT - (niceValue * WEIGHT_FACTOR);
-
-    // Ensure weight does not fall below a minimum threshold
-    if (weight < MIN_WEIGHT) {
-        weight = MIN_WEIGHT;
-    }
-
-    return weight;
 }
 
 void rotateLeft(struct RBTNode **root, struct RBTNode *x) {
@@ -265,8 +245,32 @@ void fixDeleteRBT(struct RBTNode **root, struct RBTNode *x) {
                 x = *root;
             }
         } else {
-            // Mirror code for the right child
-            // ...
+            struct RBTNode *w = x->parent->left;
+
+            if (getColor(w) == BLACK) {
+                w->color = RED;
+                x->parent->color = BLACK;
+                rotateRight(root, x->parent);
+                w = x->parent->left;
+            }
+
+            if (getColor(w->right) == RED && getColor(w->left) == RED) {
+                w->color = BLACK;
+                x = x->parent;
+            } else {
+                if (getColor(w->left) == RED) {
+                    w->right->color = RED;
+                    w->color = BLACK;
+                    rotateLeft(root, w);
+                    w = x->parent->left;
+                }
+
+                w->color = x->parent->color;
+                x->parent->color = RED;
+                w->right->color = RED;
+                rotateRight(root, x->parent);
+                x = *root;
+            }
         }
     }
     x->color = BLACK;
@@ -277,4 +281,34 @@ bool getColor(struct RBTNode* node) {
         return BLACK;
     }
     return node->color;
+}
+
+int calculateWeight(int niceValue) {
+    int weight = MAX_WEIGHT - (niceValue * WEIGHT_FACTOR);
+
+    // Ensuring weight is within a sensible range
+    if (weight < MIN_WEIGHT) {
+        weight = MIN_WEIGHT;
+    }
+
+    return weight;
+}
+
+void updateVirtualRuntime(struct proc* p) {
+    if (p == NULL) {
+        return; // Safety check to ensure the process is valid
+    }
+
+    int weight = calculateWeight(p->nice); // Assuming 'nice' is the nice value of the process
+    if (weight <= 0) {
+        weight = 1; // To prevent division by zero or negative weight
+    }
+
+    // Increment virtual runtime by time quantum scaled by weight
+    p->vruntime += TIME_QUANTUM * weight;
+
+    // Optional: Check for overflow of vruntime
+    if (p->vruntime < 0) {
+        p->vruntime = INT_MAX; // Resetting to the max value to prevent overflow
+    }
 }
