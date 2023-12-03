@@ -11,6 +11,7 @@
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
+  struct RBTNode *rbtRoot;
 } ptable;
 
 static struct proc *initproc;
@@ -89,6 +90,8 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->nice = 0; // initialize nice value
+  p->vruntime = 0;
 
   release(&ptable.lock);
 
@@ -312,6 +315,10 @@ wait(void)
   }
 }
 
+void scheduler_init() {
+    ptable.rbtRoot = NULL;  // Initialize the root of the Red-Black Tree
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -337,11 +344,11 @@ scheduler(void)
       if(p->state != RUNNABLE)
         continue;
 
-        // Find the next process to run from the RBT
-        struct proc* nextProc = getProcess(&rbtRoot);
-        if (nextProc == NULL) {
-            continue; // No process found, continue checking
-        }
+      // Find the next process to run from the RBT
+      struct proc* nextProc = getProcess(&rbtRoot);
+      if (nextProc == NULL) {
+          continue; // No process found, continue checking
+      }
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
