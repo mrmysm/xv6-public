@@ -87,8 +87,29 @@ void fixInsertRBT(struct RBTNode **root, struct RBTNode *k) {
                 rotateRight(root, k->parent->parent);
             }
         } else {
-            // Similar to "if" clause
-            // ...
+            struct RBTNode *uncle = k->parent->parent->left;
+
+            // Case : 1
+            // The uncle of k is also red
+            if (uncle != NULL && uncle->color == BLACK) {
+                k->parent->color = RED;
+                uncle->color = RED;
+                k->parent->parent->color = BLACK;
+                k = k->parent->parent;
+            } else {
+                // Case : 2
+                // k is right child of its parent
+                // Left-rotate
+                if (k == k->parent->left) {
+                    k = k->parent;
+                    rotateRight(root, k);
+                }
+
+                // Case : 3
+                k->parent->color = RED;
+                k->parent->parent->color = BLACK;
+                rotateLeft(root, k->parent->parent);
+            }
         }
     }
 
