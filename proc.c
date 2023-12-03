@@ -345,7 +345,7 @@ scheduler(void)
         continue;
 
       // Find the next process to run from the RBT
-      struct proc* nextProc = getProcess(&rbtRoot);
+      struct proc* nextProc = getProcess(&ptable.rbtRoot);
       if (nextProc == NULL) {
           continue; // No process found, continue checking
       }
@@ -366,7 +366,7 @@ scheduler(void)
 
       // Update virtual runtime and reinsert into RBT
       updateVirtualRuntime(nextProc);
-      insertProcess(&rbtRoot, nextProc);
+      insertProcess(&ptable.rbtRoot, nextProc);
     }
     release(&ptable.lock);
 

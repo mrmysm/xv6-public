@@ -1,7 +1,11 @@
-#include "limits.h"
-#include "rbt.h"
+#include "types.h"
+#include "stat.h"
 #include "user.h"
+#include "param.h"
+#include "memlayout.h"
+#include "mmu.h"
 #include "proc.h"
+#include "rbt.h"
 
 // Function to Create a New RBT Node
 struct RBTNode *createRBTNode(struct proc *p) {
@@ -330,6 +334,6 @@ void updateVirtualRuntime(struct proc* p) {
 
     // Optional: Check for overflow of vruntime
     if (p->vruntime < 0) {
-        p->vruntime = INT_MAX; // Resetting to the max value to prevent overflow
+        p->vruntime = __INT_MAX__; // Resetting to the max value to prevent overflow
     }
 }
